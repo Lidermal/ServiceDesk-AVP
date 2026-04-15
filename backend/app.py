@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for, s
 import requests
 import os
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 
 load_dotenv()
 
@@ -29,20 +30,47 @@ def home():
 def login():
     if request.method == "POST":
         email = request.form["email"]
-        matricula = request.form["matricula"]
+        senha = request.form["senha"]
 
-        # valida usuário no Supabase
-        url = f"{SUPABASE_URL}/rest/v1/usuarios?email=eq.{email}&matricula=eq.{matricula}"
+        # busca usuário no Supabase
+        url = f"{SUPABASE_URL}/rest/v1/usuarios?email=eq.{email}"
         response = requests.get(url, headers=supabase_headers())
         data = response.json()
 
         if data:
-            session["usuario"] = data[0]
-            return redirect(url_for("dashboard"))
+            usuario = data[0]
+            # se não tem senha definida, redireciona para primeiro acesso
+            if not usuario.get("senha"):
+                return redirect(url_for("primeiro_acesso", email=email))
+            # valida senha
+            if check_password_hash(usuario["senha"], senha):
+                session["usuario"] = usuario
+                return redirect(url_for("dashboard"))
+            else:
+                return render_template("login.html", erro="Senha incorreta")
         else:
             return render_template("login.html", erro="Usuário não encontrado")
 
     return render_template("login.html")
+
+@app.route("/primeiro-acesso", methods=["GET", "POST"])
+def primeiro_acesso():
+    email = request.args.get("email")
+    if request.method == "POST":
+        senha = request.form["senha"]
+        senha_hash = generate_password_hash(senha)
+
+        # atualiza senha no Supabase
+        url = f"{SUPABASE_URL}/rest/v1/usuarios?email=eq.{email}"
+        data = {"senha": senha_hash}
+        response = requests.patch(url, headers=supabase_headers(), json=data)
+
+        if response.status_code in [200, 204]:
+            return redirect(url_for("login"))
+        else:
+            return render_template("primeiro_acesso.html", erro="Erro ao criar senha", email=email)
+
+    return render_template("primeiro_acesso.html", email=email)
 
 @app.route("/logout")
 def logout():
