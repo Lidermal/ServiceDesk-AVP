@@ -7,7 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "segredo_super_seguro"  # chave para sessões
+app.secret_key = "segredo_super_seguro"
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -32,17 +32,14 @@ def login():
         email = request.form["email"]
         senha = request.form["senha"]
 
-        # busca usuário no Supabase
         url = f"{SUPABASE_URL}/rest/v1/usuarios?email=eq.{email}"
         response = requests.get(url, headers=supabase_headers())
         data = response.json()
 
         if data:
             usuario = data[0]
-            # se não tem senha definida, redireciona para primeiro acesso
             if not usuario.get("senha"):
                 return redirect(url_for("primeiro_acesso", email=email))
-            # valida senha
             if check_password_hash(usuario["senha"], senha):
                 session["usuario"] = usuario
                 return redirect(url_for("dashboard"))
@@ -60,7 +57,6 @@ def primeiro_acesso():
         senha = request.form["senha"]
         senha_hash = generate_password_hash(senha)
 
-        # atualiza senha no Supabase
         url = f"{SUPABASE_URL}/rest/v1/usuarios?email=eq.{email}"
         data = {"senha": senha_hash}
         response = requests.patch(url, headers=supabase_headers(), json=data)
@@ -95,7 +91,7 @@ def chamados_page():
         return redirect(url_for("login"))
     return render_template("chamados.html")
 
-# ---------------- API USUÁRIOS ----------------
+# ---------------- API ----------------
 @app.route("/api/usuarios", methods=["GET"])
 def listar_usuarios():
     url = f"{SUPABASE_URL}/rest/v1/usuarios"
@@ -109,7 +105,6 @@ def criar_usuario():
     response = requests.post(url, headers=supabase_headers(), json=data)
     return jsonify(response.json())
 
-# ---------------- API CHAMADOS ----------------
 @app.route("/api/chamados", methods=["GET"])
 def listar_chamados():
     url = f"{SUPABASE_URL}/rest/v1/chamados"
@@ -123,7 +118,6 @@ def criar_chamado():
     response = requests.post(url, headers=supabase_headers(), json=data)
     return jsonify(response.json())
 
-# ---------------- API HISTÓRICO ----------------
 @app.route("/api/historico", methods=["GET"])
 def listar_historico():
     url = f"{SUPABASE_URL}/rest/v1/historico"
